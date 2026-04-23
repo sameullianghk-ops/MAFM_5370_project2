@@ -1,0 +1,18 @@
+# pyproject.toml
+
+[project]
+name = "super-ttt"
+version = "0.1.0"
+requires-python = "==3.12"
+
+dependencies = [
+    "torch==2.5.1",
+    "torchrl==0.6.0",
+    "tensordict==0.6.0",
+    "numpy>=1.26.0,<2.0.0",
+    "matplotlib>=3.8.0",
+    "tqdm>=4.66.0",
+]
+
+[tool.setuptools]
+py-modules = []
