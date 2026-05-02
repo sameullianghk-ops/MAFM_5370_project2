@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import os
 import random
-import logging
 from collections import deque
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,26 +26,6 @@ from torchrl.envs.utils import check_env_specs
 from tqdm import tqdm
 
 
-# configurable parameters
-POTENTIAL_THREAT_WEIGHT = 0.08
-POTENTIAL_CENTER_WEIGHT = 0.02
-SHAPING_CLIP = 0.30
-
-@dataclass
-class PPOConfig:
-    lr: float = 3e-4
-    gamma: float = 0.99
-    gae_lambda: float = 0.95
-    clip_epsilon: float = 0.2
-    value_coef: float = 0.5
-    entropy_coef: float = 0.01
-    ppo_epochs: int = 4
-    minibatch_size: int = 256
-    update_timestep: int = 2048
-    max_grad_norm: float = 0.5
-
-
-# board config
 GRID = 12
 NUM_SQUARES = 6
 SQUARE_SIZE = 4
@@ -103,36 +81,11 @@ WIN_DIRECTIONS = [
     (1, -1, 5, False),
 ]
 
-
-# training performance show
-def plot_training_win_rates(
-    win_history: list,
-    random_history: list,
-    greedy_history: list,
-    save_path: str = "training_win_rate.png",
-    dpi: int = 300
-) -> None:
-    plt.figure(figsize=(10, 6))
-
-    # three win rate line
-    plt.plot(win_history, label="Recent 500 Episodes", color="#1f77b4", linewidth=2)
-    plt.plot(random_history, label="vs Random AI", color="#2ca02c", linewidth=2)
-    plt.plot(greedy_history, label="vs Greedy AI", color="#d62728", linewidth=2)
-
-    # figure
-    plt.title("PPO Self-Play Win Rate Curve", fontsize=14)
-    plt.xlabel("* 500 episodes", fontsize=12)
-    plt.ylabel("Win Rate", fontsize=12)
-    plt.ylim(0, 1.05)
-    plt.legend(fontsize=11)
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-
-    # save
-    plt.savefig(save_path, dpi=dpi)
+POTENTIAL_THREAT_WEIGHT = 0.08
+POTENTIAL_CENTER_WEIGHT = 0.02
+SHAPING_CLIP = 0.30
 
 
-# environment
 def _legal_actions(mask: np.ndarray) -> list[int]:
     return [i for i, m in enumerate(mask) if m > 0]
 
@@ -404,6 +357,20 @@ class PPOActorCritic(nn.Module):
         return logits, value
 
 
+@dataclass
+class PPOConfig:
+    lr: float = 3e-4
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    clip_epsilon: float = 0.2
+    value_coef: float = 0.5
+    entropy_coef: float = 0.01
+    ppo_epochs: int = 4
+    minibatch_size: int = 256
+    update_timestep: int = 2048
+    max_grad_norm: float = 0.5
+
+
 class RolloutBuffer:
     def __init__(self):
         self.states: list[np.ndarray] = []
@@ -575,7 +542,6 @@ class OpponentPool:
 
 def get_greedy_action(board: np.ndarray, player: int, legal_actions: list[int]) -> int:
     opp = 3 - player
-    best_defend = None
 
     for action in legal_actions:
         r, c = ACTION_TO_POS[action]
@@ -587,14 +553,15 @@ def get_greedy_action(board: np.ndarray, player: int, legal_actions: list[int]) 
         if win_now:
             return action
 
+    for action in legal_actions:
+        r, c = ACTION_TO_POS[action]
+        if board[r, c] != 0:
+            continue
         board[r, c] = opp
         opp_win_now = _check_winner_incremental(board, opp, (r, c))
         board[r, c] = 0
         if opp_win_now:
-            best_defend = action
-
-    if best_defend != None:
-        return best_defend
+            return action
 
     scores = np.array([CENTER_SCORE[ACTION_TO_POS[a]] for a in legal_actions], dtype=np.float32)
     max_score = float(scores.max())
@@ -670,15 +637,15 @@ def evaluate_agent_strength(agent: PPOAgent, episodes: int = 60) -> float:
     return float(np.clip(rating, 0.0, 1.0))
 
 
-def run_ppo_self_play(num_episodes: int = 20000, num_greedy: int = 12000, win_history: list = [], win_random: list = [], win_greedy: list = [], save_path: str = "checkpoints/super_ttt_ppo_infer.pt"):
+def run_ppo_self_play(num_episodes: int = 20000, save_path: str = "checkpoints/super_ttt_ppo_infer.pt"):
     env = SuperTicTacToeEnv(seed=42)
     cfg = PPOConfig()
     agent = PPOAgent(cfg)
 
-    opp_pool = OpponentPool(max_size=10)
+    opp_pool = OpponentPool(max_size=18)
     opp_pool.add_snapshot(agent.net, rating=0.5)
 
-    logging.info("🔄 PPO self-play training start (semi-turn MDP)")
+    print("🔄 PPO self-play training start (semi-turn MDP)")
 
     win_recent = deque(maxlen=500)
     lose_recent = deque(maxlen=500)
@@ -691,9 +658,9 @@ def run_ppo_self_play(num_episodes: int = 20000, num_greedy: int = 12000, win_hi
         done = False
         agent_player = 1 if random.random() < 0.5 else 2
 
-        p = min(1.0, ep / num_greedy)
-        p_random = 0.02
-        p_greedy = float(np.clip(0.90 - 0.60 * p, 0.0, 1.0))
+        p = min(1.0, ep / 12000.0)
+        p_random = 0.05
+        p_greedy = float(np.clip(0.80 - 0.60 * p, 0.0, 1.0))
         p_self = float(np.clip(1.0 - p_random - p_greedy, 0.0, 1.0))
         s = p_random + p_greedy + p_self
         p_random, p_greedy, p_self = p_random / s, p_greedy / s, p_self / s
@@ -729,10 +696,7 @@ def run_ppo_self_play(num_episodes: int = 20000, num_greedy: int = 12000, win_hi
             if done:
                 s2_board = env.get_raw_board()
                 shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
-                opp_win_penalty = -2.5 if opp_r > 0 else 0.0
-                draw_bonus = 0.05 if (done and agent_r == 0 and opp_r == 0) else 0.0
-                total_r = agent_r + opp_win_penalty + draw_bonus + shaped
-                # total_r = agent_r + shaped
+                total_r = agent_r + shaped
                 next_v = 0.0
                 done_flag = 1.0
             else:
@@ -788,26 +752,16 @@ def run_ppo_self_play(num_episodes: int = 20000, num_greedy: int = 12000, win_hi
             rating = evaluate_agent_strength(agent, episodes=60)
             opp_pool.add_snapshot(agent.net, rating=rating)
 
-
         if ep % 500 == 0:
             wr = sum(win_recent) / max(1, len(win_recent))
             lr = sum(lose_recent) / max(1, len(lose_recent))
-            logging.info(f"Ep {ep:5d} | Win {wr:.0%} | Loss {lr:.0%} | Steps {collected_steps} | Pool {len(opp_pool.pool)}")
-
-            win_history.append(wr)
-            win_random.append(evaluate_loaded_model_vs_opponent(
-                agent, num_games=500, opponent_type="random", seed=2026
-            )['win_rate'])
-            win_greedy.append(evaluate_loaded_model_vs_opponent(
-                agent, num_games=500, opponent_type="greedy", seed=2027
-            )['win_rate'])
-
+            print(f"Ep {ep:5d} | Win {wr:.0%} | Loss {lr:.0%} | Steps {collected_steps} | Pool {len(opp_pool.pool)}")
 
     if agent.buf.rewards:
         agent.update()
 
     agent.save_for_inference(save_path)
-    logging.info(f"✅ Inference model saved to: {save_path}")
+    print(f"✅ Inference model saved to: {save_path}")
     return agent
 
 
@@ -891,34 +845,12 @@ def evaluate_loaded_model_vs_opponent(
 
 
 if __name__ == "__main__":
-    model_save_path = "outputs/super_ttt_ppo_infer.pt"
-    figure_save_path = "outputs/train_win_rate.png"
-    log_save_path = "outputs/train_log.txt"
-    
-    logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s', 
-    handlers=[
-        logging.FileHandler(log_save_path, encoding="utf-8"),
-        logging.StreamHandler()
-        ]
-    )
-
     check_env_specs(SuperTicTacToeEnv())
 
-    win_history = []
-    random_history = []
-    greedy_history = []
-    trained_agent = run_ppo_self_play(num_episodes=20000, num_greedy=24000, win_history=win_history, win_random=random_history, win_greedy=greedy_history, save_path=model_save_path)
+    save_path = "checkpoints/super_ttt_ppo_infer.pt"
+    trained_agent = run_ppo_self_play(num_episodes=20000, save_path=save_path)
 
-    infer_agent = PPOAgent.load_for_inference(model_save_path)
-    
-    plot_training_win_rates(
-    win_history=win_history, 
-    random_history=random_history, 
-    greedy_history=greedy_history,
-    save_path=figure_save_path
-    )
+    infer_agent = PPOAgent.load_for_inference(save_path)
 
     random_stats = evaluate_loaded_model_vs_opponent(
         infer_agent, num_games=500, opponent_type="random", seed=2026
@@ -927,14 +859,14 @@ if __name__ == "__main__":
         infer_agent, num_games=500, opponent_type="greedy", seed=2027
     )
 
-    logging.info("\n📊 Evaluation vs RANDOM (500 games)")
-    logging.info(
+    print("\n📊 Evaluation vs RANDOM (500 games)")
+    print(
         f"W/L/D = {random_stats['wins']}/{random_stats['losses']}/{random_stats['draws']} | "
         f"Win {random_stats['win_rate']:.1%} | Loss {random_stats['loss_rate']:.1%} | Draw {random_stats['draw_rate']:.1%}"
     )
 
-    logging.info("\n📊 Evaluation vs GREEDY (500 games)")
-    logging.info(
+    print("\n📊 Evaluation vs GREEDY (500 games)")
+    print(
         f"W/L/D = {greedy_stats['wins']}/{greedy_stats['losses']}/{greedy_stats['draws']} | "
         f"Win {greedy_stats['win_rate']:.1%} | Loss {greedy_stats['loss_rate']:.1%} | Draw {greedy_stats['draw_rate']:.1%}"
     )
