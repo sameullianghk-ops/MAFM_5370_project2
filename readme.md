@@ -1,4 +1,4 @@
-# Super Tic-Tac-Toe PPO （Assignment 2, teammate: Tianrun ZHANG）
+# Super Tic-Tac-Toe PPO （Assignment 2, Author: Siqi Liang & Tianrun ZHANG）
 AI Agent for Super Tic-Tac-Toe Trained with Proximal Policy Optimization (PPO) Reinforcement Learning
 
 ## Project Introduction
