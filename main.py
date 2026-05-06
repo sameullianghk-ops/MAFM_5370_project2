@@ -1,13 +1,24 @@
+import os
 import torch
 import numpy as np
 import logging
 from tensordict import TensorDict
 
-from ppo import check_env_specs, SuperTicTacToeEnv, _get_agent_perspective_obs, ACTION_TO_POS, _td_next_reward_done, _sample_opp_action, PPOAgent, evaluate_loaded_model_vs_opponent
+# Import everything needed from the first script (saved as ppo.py)
+from ppo import (
+    SuperTicTacToeEnv,
+    PPOAgent,
+    ACTION_TO_POS,
+    _get_agent_perspective_obs,
+    _td_next_reward_done,
+    _sample_opp_action,
+    evaluate_loaded_model_vs_opponent,
+)
+from torchrl.envs.utils import check_env_specs
 
 
 def log_board(board: np.ndarray):
-    """logging board"""
+    """Log the board state in a human-readable format."""
     sym = {
         -1: '█',  # invalid place
         0: '·',   # empty place
@@ -26,7 +37,6 @@ def replay_one_game(
     opponent_type: str = "greedy",
     agent_first: bool = True,
 ):
-
     env = SuperTicTacToeEnv()
     env.reset()
 
@@ -43,7 +53,7 @@ def replay_one_game(
     done = False
 
     while not done:
-        
+
         if env._current_player == agent_player:
             logging.info(f"Step {step}: Agent")
             legal_mask = env.get_legal_mask()
@@ -61,7 +71,6 @@ def replay_one_game(
                 done = True
                 break
 
-        
         elif env._current_player == opp_player:
             logging.info(f"Step {step}: Opponent Player")
             oa = _sample_opp_action(env, opp_player, opponent_type, None)
@@ -87,35 +96,38 @@ def replay_one_game(
 
 
 if __name__ == "__main__":
-    model_save_path = "outputs/sample_85_vs_greedy/super_ttt_ppo_infer_85_vs_greedy.pt" # "outputs/sample_85_vs_greedy/super_ttt_ppo_infer_85_vs_greedy.pt" for default pretrained model
+    # Use the model produced by the training script (ppo.py)
+    model_save_path = "outputs/super_ttt_ppo_infer.pt"
     log_save_path = "outputs/test_log.txt"
     random_check_times = 5
-    
+
+    # Ensure output directory exists
+    os.makedirs("outputs", exist_ok=True)
+
     logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s', 
-    handlers=[
-        logging.FileHandler(log_save_path, encoding="utf-8"),
-        logging.StreamHandler()
-        ]
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_save_path, encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
     )
 
     check_env_specs(SuperTicTacToeEnv())
 
     infer_agent = PPOAgent.load_for_inference(model_save_path)
 
-
-    logging.info("\n📌 Display the game with random opponent player to check if the rule satisfies the requirements.")
+    logging.info(
+        "\n📌 Display the game with random opponent player to check if the rule satisfies the requirements."
+    )
     for i in range(random_check_times):
-        logging.info(f"{'\n'}🆚 Game vs Random {i+1}/{random_check_times}")
+        logging.info(f"\n🆚 Game vs Random {i + 1}/{random_check_times}")
         replay_one_game(infer_agent, opponent_type="random", agent_first=False)
 
-    
     logging.info("\n📌 Display the game with greedy opponent player")
     for i in range(random_check_times):
-        logging.info(f"{'\n'}🆚 Game vs Greedy {i+1}/{random_check_times}")
+        logging.info(f"\n🆚 Game vs Greedy {i + 1}/{random_check_times}")
         replay_one_game(infer_agent, opponent_type="greedy", agent_first=False)
-
 
     random_stats = evaluate_loaded_model_vs_opponent(
         infer_agent, num_games=500, opponent_type="random", seed=2026
@@ -123,7 +135,6 @@ if __name__ == "__main__":
     greedy_stats = evaluate_loaded_model_vs_opponent(
         infer_agent, num_games=500, opponent_type="greedy", seed=2027
     )
-
 
     logging.info("\n📊 Evaluation vs RANDOM (500 games)")
     logging.info(

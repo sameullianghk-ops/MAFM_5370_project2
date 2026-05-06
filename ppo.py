@@ -28,10 +28,13 @@ from torchrl.envs.utils import check_env_specs
 from tqdm import tqdm
 
 
-# configurable parameters
+# ═══════════════════════════════════════════════════════════════════════════════
+# Configurable parameters
+# ═══════════════════════════════════════════════════════════════════════════════
 POTENTIAL_THREAT_WEIGHT = 0.08
 POTENTIAL_CENTER_WEIGHT = 0.02
 SHAPING_CLIP = 0.30
+
 
 @dataclass
 class PPOConfig:
@@ -47,7 +50,9 @@ class PPOConfig:
     max_grad_norm: float = 0.5
 
 
-# board config
+# ═══════════════════════════════════════════════════════════════════════════════
+# Board configuration
+# ═══════════════════════════════════════════════════════════════════════════════
 GRID = 12
 NUM_SQUARES = 6
 SQUARE_SIZE = 4
@@ -104,22 +109,23 @@ WIN_DIRECTIONS = [
 ]
 
 
-# training performance show
+# ═══════════════════════════════════════════════════════════════════════════════
+# Training performance visualization
+# ═══════════════════════════════════════════════════════════════════════════════
 def plot_training_win_rates(
     win_history: list,
     random_history: list,
     greedy_history: list,
     save_path: str = "training_win_rate.png",
-    dpi: int = 300
+    dpi: int = 300,
 ) -> None:
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     plt.figure(figsize=(10, 6))
 
-    # three win rate line
     plt.plot(win_history, label="Recent 500 Episodes", color="#1f77b4", linewidth=2)
     plt.plot(random_history, label="vs Random AI", color="#2ca02c", linewidth=2)
     plt.plot(greedy_history, label="vs Greedy AI", color="#d62728", linewidth=2)
 
-    # figure
     plt.title("PPO Self-Play Win Rate Curve", fontsize=14)
     plt.xlabel("* 500 episodes", fontsize=12)
     plt.ylabel("Win Rate", fontsize=12)
@@ -128,11 +134,13 @@ def plot_training_win_rates(
     plt.grid(alpha=0.3)
     plt.tight_layout()
 
-    # save
     plt.savefig(save_path, dpi=dpi)
+    plt.close()
 
 
-# environment
+# ═══════════════════════════════════════════════════════════════════════════════
+# Environment helpers
+# ═══════════════════════════════════════════════════════════════════════════════
 def _legal_actions(mask: np.ndarray) -> list[int]:
     return [i for i, m in enumerate(mask) if m > 0]
 
@@ -256,6 +264,9 @@ def _get_agent_perspective_obs(raw_board: np.ndarray, agent_player: int) -> np.n
     return obs
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TorchRL Environment
+# ═══════════════════════════════════════════════════════════════════════════════
 class SuperTicTacToeEnv(EnvBase):
     batch_size = torch.Size([])
     device = torch.device("cpu")
@@ -349,6 +360,9 @@ class SuperTicTacToeEnv(EnvBase):
         return mask
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PPO Actor-Critic Network
+# ═══════════════════════════════════════════════════════════════════════════════
 class PPOActorCritic(nn.Module):
     def __init__(self):
         super().__init__()
@@ -404,6 +418,9 @@ class PPOActorCritic(nn.Module):
         return logits, value
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Rollout Buffer
+# ═══════════════════════════════════════════════════════════════════════════════
 class RolloutBuffer:
     def __init__(self):
         self.states: list[np.ndarray] = []
@@ -426,6 +443,9 @@ class RolloutBuffer:
         self.next_values.clear()
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PPO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
 class PPOAgent:
     def __init__(self, cfg: PPOConfig):
         self.cfg = cfg
@@ -529,6 +549,9 @@ class PPOAgent:
         return agent
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Opponent Pool (for self-play diversity)
+# ═══════════════════════════════════════════════════════════════════════════════
 @dataclass
 class OpponentSnapshot:
     state_dict: dict
@@ -573,6 +596,9 @@ class OpponentPool:
         return opp
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Greedy opponent logic
+# ═══════════════════════════════════════════════════════════════════════════════
 def get_greedy_action(board: np.ndarray, player: int, legal_actions: list[int]) -> int:
     opp = 3 - player
     best_defend = None
@@ -593,7 +619,7 @@ def get_greedy_action(board: np.ndarray, player: int, legal_actions: list[int]) 
         if opp_win_now:
             best_defend = action
 
-    if best_defend != None:
+    if best_defend is not None:
         return best_defend
 
     scores = np.array([CENTER_SCORE[ACTION_TO_POS[a]] for a in legal_actions], dtype=np.float32)
@@ -614,6 +640,7 @@ def _sample_opp_action(
     if opp_type == "greedy":
         return get_greedy_action(env.get_raw_board(), player, legal)
 
+    # self-play opponent
     obs = _get_agent_perspective_obs(env.get_raw_board(), player)
     mask = env.get_legal_mask()
     with torch.no_grad():
@@ -624,6 +651,9 @@ def _sample_opp_action(
         return int(Categorical(logits=logits).sample().item())
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Evaluation helpers
+# ═══════════════════════════════════════════════════════════════════════════════
 def evaluate_agent_strength(agent: PPOAgent, episodes: int = 60) -> float:
     env = SuperTicTacToeEnv(seed=1234)
     wins, losses = 0, 0
@@ -668,147 +698,6 @@ def evaluate_agent_strength(agent: PPOAgent, episodes: int = 60) -> float:
     loss_rate = losses / total
     rating = 0.5 + 0.5 * (win_rate - loss_rate)
     return float(np.clip(rating, 0.0, 1.0))
-
-
-def run_ppo_self_play(num_episodes: int = 20000, num_greedy: int = 12000, win_history: list = [], win_random: list = [], win_greedy: list = [], save_path: str = "checkpoints/super_ttt_ppo_infer.pt"):
-    env = SuperTicTacToeEnv(seed=42)
-    cfg = PPOConfig()
-    agent = PPOAgent(cfg)
-
-    opp_pool = OpponentPool(max_size=10)
-    opp_pool.add_snapshot(agent.net, rating=0.5)
-
-    logging.info("🔄 PPO self-play training start (semi-turn MDP)")
-
-    win_recent = deque(maxlen=500)
-    lose_recent = deque(maxlen=500)
-
-    collected_steps = 0
-    since_last_update = 0
-
-    for ep in tqdm(range(1, num_episodes + 1)):
-        env.reset()
-        done = False
-        agent_player = 1 if random.random() < 0.5 else 2
-
-        p = min(1.0, ep / num_greedy)
-        p_random = 0.02
-        p_greedy = float(np.clip(0.90 - 0.60 * p, 0.0, 1.0))
-        p_self = float(np.clip(1.0 - p_random - p_greedy, 0.0, 1.0))
-        s = p_random + p_greedy + p_self
-        p_random, p_greedy, p_self = p_random / s, p_greedy / s, p_self / s
-
-        opp_type = random.choices(["random", "greedy", "self"], weights=[p_random, p_greedy, p_self])[0]
-        opp_net = opp_pool.sample(PPOActorCritic()) if opp_type == "self" else None
-
-        if agent_player == 2:
-            legal0 = _legal_actions(env.get_legal_mask())
-            if legal0:
-                oa = _sample_opp_action(env, 1, opp_type, opp_net)
-                td0 = env.step(TensorDict({"action": torch.tensor(oa)}, batch_size=[]))
-                _, done = _td_next_reward_done(td0)
-
-        ep_win = False
-        ep_lose = False
-
-        while not done:
-            legal_mask = env.get_legal_mask()
-            if legal_mask.sum() <= 0:
-                break
-
-            s_board = env.get_raw_board()
-            s_obs = _get_agent_perspective_obs(s_board, agent_player)
-
-            a, logp, v = agent.act(s_obs, legal_mask, deterministic=False)
-            td = env.step(TensorDict({"action": torch.tensor(a)}, batch_size=[]))
-            agent_r, done = _td_next_reward_done(td)
-
-            if agent_r > 0:
-                ep_win = True
-
-            if done:
-                s2_board = env.get_raw_board()
-                shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
-                opp_win_penalty = -2.5 if opp_r > 0 else 0.0
-                draw_bonus = 0.05 if (done and agent_r == 0 and opp_r == 0) else 0.0
-                total_r = agent_r + opp_win_penalty + draw_bonus + shaped
-                # total_r = agent_r + shaped
-                next_v = 0.0
-                done_flag = 1.0
-            else:
-                legal2 = _legal_actions(env.get_legal_mask())
-                if not legal2:
-                    done = True
-                    s2_board = env.get_raw_board()
-                    shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
-                    total_r = agent_r + shaped
-                    next_v = 0.0
-                    done_flag = 1.0
-                else:
-                    oa = _sample_opp_action(env, 3 - agent_player, opp_type, opp_net)
-                    td2 = env.step(TensorDict({"action": torch.tensor(oa)}, batch_size=[]))
-                    opp_r, done = _td_next_reward_done(td2)
-
-                    if opp_r > 0:
-                        ep_lose = True
-
-                    s2_board = env.get_raw_board()
-                    shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
-                    total_r = agent_r - opp_r + shaped
-
-                    if done:
-                        next_v = 0.0
-                        done_flag = 1.0
-                    else:
-                        next_obs = _get_agent_perspective_obs(s2_board, agent_player)
-                        next_mask = env.get_legal_mask()
-                        next_v = agent.eval_value(next_obs, next_mask)
-                        done_flag = 0.0
-
-            agent.buf.states.append(s_obs)
-            agent.buf.masks.append(legal_mask)
-            agent.buf.actions.append(a)
-            agent.buf.logprobs.append(logp)
-            agent.buf.rewards.append(total_r)
-            agent.buf.dones.append(done_flag)
-            agent.buf.values.append(v)
-            agent.buf.next_values.append(next_v)
-
-            collected_steps += 1
-            since_last_update += 1
-
-            if since_last_update >= cfg.update_timestep:
-                agent.update()
-                since_last_update = 0
-
-        win_recent.append(1 if ep_win else 0)
-        lose_recent.append(1 if ep_lose else 0)
-
-        if ep % 2000 == 0:
-            rating = evaluate_agent_strength(agent, episodes=60)
-            opp_pool.add_snapshot(agent.net, rating=rating)
-
-
-        if ep % 500 == 0:
-            wr = sum(win_recent) / max(1, len(win_recent))
-            lr = sum(lose_recent) / max(1, len(lose_recent))
-            logging.info(f"Ep {ep:5d} | Win {wr:.0%} | Loss {lr:.0%} | Steps {collected_steps} | Pool {len(opp_pool.pool)}")
-
-            win_history.append(wr)
-            win_random.append(evaluate_loaded_model_vs_opponent(
-                agent, num_games=500, opponent_type="random", seed=2026
-            )['win_rate'])
-            win_greedy.append(evaluate_loaded_model_vs_opponent(
-                agent, num_games=500, opponent_type="greedy", seed=2027
-            )['win_rate'])
-
-
-    if agent.buf.rewards:
-        agent.update()
-
-    agent.save_for_inference(save_path)
-    logging.info(f"✅ Inference model saved to: {save_path}")
-    return agent
 
 
 def evaluate_loaded_model_vs_opponent(
@@ -877,7 +766,7 @@ def evaluate_loaded_model_vs_opponent(
             draws += 1
 
     wr = wins / num_games
-    lr = losses / num_games
+    lr_ = losses / num_games
     dr = draws / num_games
     return {
         "games": num_games,
@@ -885,39 +774,216 @@ def evaluate_loaded_model_vs_opponent(
         "losses": losses,
         "draws": draws,
         "win_rate": wr,
-        "loss_rate": lr,
+        "loss_rate": lr_,
         "draw_rate": dr,
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Main training loop
+# ═══════════════════════════════════════════════════════════════════════════════
+def run_ppo_self_play(
+    num_episodes: int = 20000,
+    num_greedy: int = 12000,
+    win_history: list = None,
+    win_random: list = None,
+    win_greedy: list = None,
+    save_path: str = "checkpoints/super_ttt_ppo_infer.pt",
+):
+    if win_history is None:
+        win_history = []
+    if win_random is None:
+        win_random = []
+    if win_greedy is None:
+        win_greedy = []
+
+    env = SuperTicTacToeEnv(seed=42)
+    cfg = PPOConfig()
+    agent = PPOAgent(cfg)
+
+    opp_pool = OpponentPool(max_size=10)
+    opp_pool.add_snapshot(agent.net, rating=0.5)
+
+    logging.info("🔄 PPO self-play training start (semi-turn MDP)")
+
+    win_recent = deque(maxlen=500)
+    lose_recent = deque(maxlen=500)
+
+    collected_steps = 0
+    since_last_update = 0
+
+    for ep in tqdm(range(1, num_episodes + 1)):
+        env.reset()
+        done = False
+        agent_player = 1 if random.random() < 0.5 else 2
+
+        p = min(1.0, ep / num_greedy)
+        p_random = 0.02
+        p_greedy = float(np.clip(0.90 - 0.60 * p, 0.0, 1.0))
+        p_self = float(np.clip(1.0 - p_random - p_greedy, 0.0, 1.0))
+        s = p_random + p_greedy + p_self
+        p_random, p_greedy, p_self = p_random / s, p_greedy / s, p_self / s
+
+        opp_type = random.choices(["random", "greedy", "self"], weights=[p_random, p_greedy, p_self])[0]
+        opp_net = opp_pool.sample(PPOActorCritic()) if opp_type == "self" else None
+
+        if agent_player == 2:
+            legal0 = _legal_actions(env.get_legal_mask())
+            if legal0:
+                oa = _sample_opp_action(env, 1, opp_type, opp_net)
+                td0 = env.step(TensorDict({"action": torch.tensor(oa)}, batch_size=[]))
+                _, done = _td_next_reward_done(td0)
+
+        ep_win = False
+        ep_lose = False
+
+        while not done:
+            legal_mask = env.get_legal_mask()
+            if legal_mask.sum() <= 0:
+                break
+
+            s_board = env.get_raw_board()
+            s_obs = _get_agent_perspective_obs(s_board, agent_player)
+
+            a, logp, v = agent.act(s_obs, legal_mask, deterministic=False)
+            td = env.step(TensorDict({"action": torch.tensor(a)}, batch_size=[]))
+            agent_r, done = _td_next_reward_done(td)
+
+            if agent_r > 0:
+                ep_win = True
+
+            opp_r = 0.0
+
+            if done:
+                s2_board = env.get_raw_board()
+                shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
+                opp_win_penalty = -2.5 if opp_r > 0 else 0.0
+                draw_bonus = 0.05 if (done and agent_r == 0 and opp_r == 0) else 0.0
+                total_r = agent_r + opp_win_penalty + draw_bonus + shaped
+                next_v = 0.0
+                done_flag = 1.0
+            else:
+                legal2 = _legal_actions(env.get_legal_mask())
+                if not legal2:
+                    done = True
+                    s2_board = env.get_raw_board()
+                    shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
+                    total_r = agent_r + shaped
+                    next_v = 0.0
+                    done_flag = 1.0
+                else:
+                    oa = _sample_opp_action(env, 3 - agent_player, opp_type, opp_net)
+                    td2 = env.step(TensorDict({"action": torch.tensor(oa)}, batch_size=[]))
+                    opp_r, done = _td_next_reward_done(td2)
+
+                    if opp_r > 0:
+                        ep_lose = True
+
+                    s2_board = env.get_raw_board()
+                    shaped = compute_strict_potential_reward(s_board, s2_board, agent_player)
+                    total_r = agent_r - opp_r + shaped
+
+                    if done:
+                        next_v = 0.0
+                        done_flag = 1.0
+                    else:
+                        next_obs = _get_agent_perspective_obs(s2_board, agent_player)
+                        next_mask = env.get_legal_mask()
+                        next_v = agent.eval_value(next_obs, next_mask)
+                        done_flag = 0.0
+
+            agent.buf.states.append(s_obs)
+            agent.buf.masks.append(legal_mask)
+            agent.buf.actions.append(a)
+            agent.buf.logprobs.append(logp)
+            agent.buf.rewards.append(total_r)
+            agent.buf.dones.append(done_flag)
+            agent.buf.values.append(v)
+            agent.buf.next_values.append(next_v)
+
+            collected_steps += 1
+            since_last_update += 1
+
+            if since_last_update >= cfg.update_timestep:
+                agent.update()
+                since_last_update = 0
+
+        win_recent.append(1 if ep_win else 0)
+        lose_recent.append(1 if ep_lose else 0)
+
+        if ep % 2000 == 0:
+            rating = evaluate_agent_strength(agent, episodes=60)
+            opp_pool.add_snapshot(agent.net, rating=rating)
+
+        if ep % 500 == 0:
+            wr = sum(win_recent) / max(1, len(win_recent))
+            lr_ = sum(lose_recent) / max(1, len(lose_recent))
+            logging.info(
+                f"Ep {ep:5d} | Win {wr:.0%} | Loss {lr_:.0%} | Steps {collected_steps} | Pool {len(opp_pool.pool)}"
+            )
+
+            win_history.append(wr)
+            win_random.append(
+                evaluate_loaded_model_vs_opponent(
+                    agent, num_games=500, opponent_type="random", seed=2026
+                )["win_rate"]
+            )
+            win_greedy.append(
+                evaluate_loaded_model_vs_opponent(
+                    agent, num_games=500, opponent_type="greedy", seed=2027
+                )["win_rate"]
+            )
+
+    if agent.buf.rewards:
+        agent.update()
+
+    agent.save_for_inference(save_path)
+    logging.info(f"✅ Inference model saved to: {save_path}")
+    return agent
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Entry point
+# ═══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     model_save_path = "outputs/super_ttt_ppo_infer.pt"
     figure_save_path = "outputs/train_win_rate.png"
     log_save_path = "outputs/train_log.txt"
-    
+
+    # ✅ Create all required directories upfront so no FileNotFoundError occurs
+    os.makedirs("outputs", exist_ok=True)
+
     logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s', 
-    handlers=[
-        logging.FileHandler(log_save_path, encoding="utf-8"),
-        logging.StreamHandler()
-        ]
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_save_path, encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
     )
 
     check_env_specs(SuperTicTacToeEnv())
 
-    win_history = []
-    random_history = []
-    greedy_history = []
-    trained_agent = run_ppo_self_play(num_episodes=20000, num_greedy=24000, win_history=win_history, win_random=random_history, win_greedy=greedy_history, save_path=model_save_path)
+    win_history: list[float] = []
+    random_history: list[float] = []
+    greedy_history: list[float] = []
+
+    trained_agent = run_ppo_self_play(
+        num_episodes=20000,
+        num_greedy=24000,
+        win_history=win_history,
+        win_random=random_history,
+        win_greedy=greedy_history,
+        save_path=model_save_path,
+    )
 
     infer_agent = PPOAgent.load_for_inference(model_save_path)
-    
+
     plot_training_win_rates(
-    win_history=win_history, 
-    random_history=random_history, 
-    greedy_history=greedy_history,
-    save_path=figure_save_path
+        win_history=win_history,
+        random_history=random_history,
+        greedy_history=greedy_history,
+        save_path=figure_save_path,
     )
 
     random_stats = evaluate_loaded_model_vs_opponent(
