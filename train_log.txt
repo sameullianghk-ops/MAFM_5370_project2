@@ -1,0 +1,50 @@
+2026-05-06 15:28:59,979 - 🔄 PPO self-play training start (semi-turn MDP)
+2026-05-06 15:29:31,850 - Ep   500 | Win 11% | Loss 89% | Steps 10192 | Pool 1
+2026-05-06 15:48:07,533 - 🔄 PPO self-play training start (semi-turn MDP)
+2026-05-06 15:48:39,158 - Ep   500 | Win 10% | Loss 90% | Steps 10006 | Pool 1
+2026-05-06 15:49:32,498 - Ep  1000 | Win 11% | Loss 89% | Steps 19935 | Pool 1
+2026-05-06 15:50:23,002 - Ep  1500 | Win 14% | Loss 86% | Steps 29854 | Pool 1
+2026-05-06 15:51:13,526 - Ep  2000 | Win 17% | Loss 83% | Steps 39473 | Pool 2
+2026-05-06 15:51:56,566 - Ep  2500 | Win 20% | Loss 80% | Steps 48884 | Pool 2
+2026-05-06 15:52:43,492 - Ep  3000 | Win 24% | Loss 76% | Steps 58446 | Pool 2
+2026-05-06 15:53:25,271 - Ep  3500 | Win 31% | Loss 69% | Steps 67252 | Pool 2
+2026-05-06 15:54:09,293 - Ep  4000 | Win 35% | Loss 65% | Steps 76003 | Pool 3
+2026-05-06 15:54:46,001 - Ep  4500 | Win 37% | Loss 63% | Steps 84134 | Pool 3
+2026-05-06 15:55:19,803 - Ep  5000 | Win 42% | Loss 58% | Steps 91934 | Pool 3
+2026-05-06 15:55:55,212 - Ep  5500 | Win 51% | Loss 49% | Steps 99371 | Pool 3
+2026-05-06 15:56:29,610 - Ep  6000 | Win 56% | Loss 44% | Steps 106511 | Pool 4
+2026-05-06 15:57:01,479 - Ep  6500 | Win 58% | Loss 42% | Steps 113446 | Pool 4
+2026-05-06 15:57:33,245 - Ep  7000 | Win 59% | Loss 41% | Steps 120274 | Pool 4
+2026-05-06 15:58:07,394 - Ep  7500 | Win 64% | Loss 36% | Steps 127060 | Pool 4
+2026-05-06 15:58:39,509 - Ep  8000 | Win 60% | Loss 40% | Steps 133668 | Pool 5
+2026-05-06 15:59:10,939 - Ep  8500 | Win 68% | Loss 32% | Steps 140041 | Pool 5
+2026-05-06 15:59:41,422 - Ep  9000 | Win 64% | Loss 36% | Steps 146455 | Pool 5
+2026-05-06 16:00:12,500 - Ep  9500 | Win 68% | Loss 32% | Steps 152786 | Pool 5
+2026-05-06 16:00:43,830 - Ep 10000 | Win 63% | Loss 37% | Steps 159325 | Pool 6
+2026-05-06 16:01:14,340 - Ep 10500 | Win 68% | Loss 32% | Steps 165624 | Pool 6
+2026-05-06 16:01:44,370 - Ep 11000 | Win 72% | Loss 28% | Steps 171901 | Pool 6
+2026-05-06 16:02:13,919 - Ep 11500 | Win 68% | Loss 32% | Steps 178172 | Pool 6
+2026-05-06 16:02:44,057 - Ep 12000 | Win 76% | Loss 24% | Steps 184196 | Pool 7
+2026-05-06 16:03:12,907 - Ep 12500 | Win 71% | Loss 29% | Steps 190209 | Pool 7
+2026-05-06 16:03:41,081 - Ep 13000 | Win 75% | Loss 25% | Steps 196168 | Pool 7
+2026-05-06 16:04:09,262 - Ep 13500 | Win 77% | Loss 23% | Steps 201986 | Pool 7
+2026-05-06 16:04:36,999 - Ep 14000 | Win 81% | Loss 19% | Steps 207359 | Pool 8
+2026-05-06 16:05:02,151 - Ep 14500 | Win 82% | Loss 18% | Steps 212964 | Pool 8
+2026-05-06 16:05:30,106 - Ep 15000 | Win 76% | Loss 24% | Steps 218660 | Pool 8
+2026-05-06 16:05:58,445 - Ep 15500 | Win 78% | Loss 22% | Steps 224426 | Pool 8
+2026-05-06 16:06:26,502 - Ep 16000 | Win 73% | Loss 27% | Steps 230010 | Pool 9
+2026-05-06 16:06:54,868 - Ep 16500 | Win 77% | Loss 23% | Steps 235711 | Pool 9
+2026-05-06 16:07:20,494 - Ep 17000 | Win 76% | Loss 24% | Steps 241353 | Pool 9
+2026-05-06 16:07:48,472 - Ep 17500 | Win 75% | Loss 25% | Steps 247078 | Pool 9
+2026-05-06 16:08:16,669 - Ep 18000 | Win 78% | Loss 22% | Steps 252589 | Pool 10
+2026-05-06 16:08:42,734 - Ep 18500 | Win 81% | Loss 19% | Steps 257984 | Pool 10
+2026-05-06 16:09:09,934 - Ep 19000 | Win 80% | Loss 20% | Steps 263227 | Pool 10
+2026-05-06 16:09:37,403 - Ep 19500 | Win 77% | Loss 23% | Steps 268594 | Pool 10
+2026-05-06 16:10:03,408 - Ep 20000 | Win 81% | Loss 19% | Steps 274015 | Pool 10
+2026-05-06 16:10:13,661 - ✅ Inference model saved to: outputs/super_ttt_ppo_infer.pt
+2026-05-06 16:10:22,865 - 
+📊 Evaluation vs RANDOM (500 games)
+2026-05-06 16:10:22,865 - W/L/D = 499/1/0 | Win 99.8% | Loss 0.2% | Draw 0.0%
+2026-05-06 16:10:22,865 - 
+📊 Evaluation vs GREEDY (500 games)
+2026-05-06 16:10:22,865 - W/L/D = 408/92/0 | Win 81.6% | Loss 18.4% | Draw 0.0%
